@@ -66,8 +66,8 @@ public class GetLocation extends Activity implements LocationListener {
 
         dataLoca = context.getSharedPreferences("location", context.MODE_PRIVATE);
         SharedPreferences.Editor editor = dataLoca.edit();
-        editor.putString("log", String.valueOf(location.getLongitude()));
-        editor.putString("lat", String.valueOf(location.getLatitude()));
+        editor.putString("log", String.format("%.4f",String.valueOf(location.getLongitude())));
+        editor.putString("lat", String.format("%.4f",String.valueOf(location.getLatitude())));
         editor.apply();
 
 

@@ -1,7 +1,10 @@
 package jp4r7.sendsms;
 
 
+import android.app.Activity;
+import android.bluetooth.BluetoothAdapter;
 import android.content.Context;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.location.LocationManager;
@@ -14,22 +17,33 @@ import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.TextClock;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.io.UnsupportedEncodingException;
+import java.util.Arrays;
+
+import app.akexorcist.bluetotohspp.library.BluetoothSPP;
+import app.akexorcist.bluetotohspp.library.BluetoothState;
+import app.akexorcist.bluetotohspp.library.DeviceList;
 
 
 public class MainActivity extends AppCompatActivity {
     //get acces to location permsion
     final private int REQUEST_CODE_ASK_PERMISSIONS = 123;
+    final private int RECEIVE_CODE_ACT = 1669;
+    BluetoothSPP bt;
 
     Button btnSave;
     Button btnShowLoca;
     EditText edtNoPhone;
     EditText edtText;
+    TextView tvStatus;
     TextView tvLocation;
     String  noPhone;
     String message;
+    int messageReceive;
     String location2show;
     SharedPreferences settings;
     SharedPreferences location;
@@ -50,44 +64,150 @@ public class MainActivity extends AppCompatActivity {
         getLocation = new GetLocation(this);
         location2show = "Location : ";
 
+        bt = new BluetoothSPP(this);
+
         btnSave = findViewById(R.id.btnSave);
         btnShowLoca = findViewById(R.id.btnShowLoca);
         edtNoPhone = findViewById(R.id.edtNoPhone);
         edtText = findViewById(R.id.edtText);
         tvLocation = findViewById(R.id.tvLocation);
+        tvStatus = findViewById(R.id.tvStatus);
 
         getlocation2Show();
         loadSave();
         loadSaveLocation();
+
+        bt.setOnDataReceivedListener(new BluetoothSPP.OnDataReceivedListener() {
+            public void onDataReceived(byte[] data, String message) {
+                Log.d("data",Arrays.toString(data));
+                Log.d("data2",message);
+
+                 messageReceive = Integer.parseInt(message);
+                if(messageReceive  == RECEIVE_CODE_ACT){
+                    loadSaveLocation();
+                    tvLocation.setText("Location : "+ location2show);
+                    sendSMSMessage();
+                    messageReceive = 0;
+                }
+
+            }
+        });
+
+
 
         btnSave.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
                 settings = getApplicationContext().getSharedPreferences("setting", Context.MODE_PRIVATE);
                 SharedPreferences.Editor editor = settings.edit();
-                editor.putInt("NoPhone", Integer.parseInt(edtNoPhone.getText().toString()));
+                editor.putString("NoPhone", edtNoPhone.getText().toString());
                 editor.putString("Msg", edtText.getText().toString());
                 // Apply the edits!
                 editor.apply();
+                Toast.makeText(getApplicationContext(),"บันทึกเรียบร้อย",Toast.LENGTH_SHORT).show();
 
             }
         });
+
+
 
         btnShowLoca.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
                 loadSaveLocation();
                 tvLocation.setText("Location : "+ location2show);
-                sendSMSMessage();
-
             }
         });
+
+
+        if(!bt.isBluetoothAvailable()) {
+            Toast.makeText(getApplicationContext(), "Bluetooth is not available"
+                    , Toast.LENGTH_SHORT).show();
+            finish();
+        }
+
+
+
+        bt.setBluetoothConnectionListener(new BluetoothSPP.BluetoothConnectionListener() {
+            public void onDeviceConnected(String name, String address) {
+                tvStatus.setText("Status : Connected "+ bt.getConnectedDeviceName());
+                Toast.makeText(getApplicationContext(), "Connected to " + name + "\n" + address
+                        , Toast.LENGTH_SHORT).show();
+            }
+
+            public void onDeviceDisconnected() {
+                tvStatus.setText("Status : No connected");
+                Toast.makeText(getApplicationContext(), "Connection lost"
+                        , Toast.LENGTH_SHORT).show();
+            }
+
+            public void onDeviceConnectionFailed() {
+                Toast.makeText(getApplicationContext(), "Unable to connect"
+                        , Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        Button btnConnect = (Button)findViewById(R.id.btnConnect);
+        btnConnect.setOnClickListener(new View.OnClickListener(){
+            public void onClick(View v){
+                if(bt.getServiceState() == BluetoothState.STATE_CONNECTED) {
+                    //bt.disconnected();
+                    bt.disconnect();
+                } else {
+                   // bt.connect("98:D3:37:90:FC:3E");
+                    Intent intent = new Intent(getApplicationContext(), DeviceList.class);
+                    startActivityForResult(intent, BluetoothState.REQUEST_CONNECT_DEVICE);
+                }
+            }
+        });
+
+    }
+
+    public void onDestroy() {
+        super.onDestroy();
+        bt.stopService();
+    }
+
+    public void onStart() {
+        super.onStart();
+        if(!bt.isBluetoothEnabled()) {
+            Intent intent= new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
+            startActivityForResult(intent, BluetoothState.REQUEST_ENABLE_BT);
+        } else {
+            if(!bt.isServiceAvailable()) {
+                bt.setupService();
+                bt.startService(BluetoothState.DEVICE_OTHER);
+                setup();
+            }
+        }
+    }
+
+    public void onActivityResult(int requestCode, int resultCode, Intent data) {
+        if(requestCode == BluetoothState.REQUEST_CONNECT_DEVICE) {
+            if(resultCode == Activity.RESULT_OK)
+                bt.connect(data);
+        } else if(requestCode == BluetoothState.REQUEST_ENABLE_BT) {
+            if(resultCode == Activity.RESULT_OK) {
+                bt.setupService();
+                bt.startService(BluetoothState.DEVICE_OTHER);
+                setup();
+            } else {
+                Toast.makeText(getApplicationContext()
+                        , "Bluetooth was not enabled."
+                        , Toast.LENGTH_SHORT).show();
+                finish();
+            }
+        }
+    }
+
+    public void setup() {
+
     }
 
     void loadSave(){
         // Get from the SharedPreferences
         settings = getApplicationContext().getSharedPreferences("setting", Context.MODE_PRIVATE);
-        noPhone = String.valueOf(settings.getInt("NoPhone", Context.MODE_PRIVATE));
+        noPhone = String.valueOf(settings.getString("NoPhone", String.valueOf(Context.MODE_PRIVATE)));
         message = String.valueOf(settings.getString("Msg", String.valueOf(0)));
         edtNoPhone.setText(noPhone);
         edtText.setText(message);
@@ -106,6 +226,7 @@ public class MainActivity extends AppCompatActivity {
         location = getApplicationContext().getSharedPreferences("location",Context.MODE_PRIVATE);
         log = String.valueOf(location.getString("log",String.valueOf(0)));
         lat = String.valueOf(location.getString("lat",String.valueOf(0)));
+
         location2show = log +","+lat;
     }
 

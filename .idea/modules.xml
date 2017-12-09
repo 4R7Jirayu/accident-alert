@@ -2,8 +2,10 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/SendSMS.iml" filepath="$PROJECT_DIR$/SendSMS.iml" />
+      <module fileurl="file://C:\Users\4R7\Documents\GitHub\accident-alert\SendSMS.iml" filepath="C:\Users\4R7\Documents\GitHub\accident-alert\SendSMS.iml" />
+      <module fileurl="file://$PROJECT_DIR$/accident-alert.iml" filepath="$PROJECT_DIR$/accident-alert.iml" />
       <module fileurl="file://$PROJECT_DIR$/app/app.iml" filepath="$PROJECT_DIR$/app/app.iml" />
+      <module fileurl="file://C:\Users\4R7\Documents\GitHub\accident-alert\app\app.iml" filepath="C:\Users\4R7\Documents\GitHub\accident-alert\app\app.iml" />
     </modules>
   </component>
 </project>
